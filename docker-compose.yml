@@ -1,0 +1,124 @@
+services:
+  app:
+    container_name: parrylingo
+    build:
+      context: .
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+
+  celery_worker:
+    container_name: celery_worker
+    build: .
+    command: python -m celery -A celery_tasks.main worker --pool=solo --loglevel=info -E
+    env_file: .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  celery_beat:
+    container_name: celery_beat
+    build: .
+    command: python -m celery -A celery_tasks.main beat --loglevel=info
+    env_file: .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "celery_tasks.main", "inspect", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - .:/app
+
+  flower:
+    container_name: flower
+    build: .
+    command: celery -A celery_tasks.main flower --port=5555 --broker=amqp://guest:guest@rabbitmq:5672//
+    env_file: .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      celery_worker:
+        condition: service_started
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+
+  postgres:
+    container_name: postgres
+    image: postgres:17.2
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_DB:       ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    container_name: redis
+    image: redis:7.4
+    restart: unless-stopped
+    command:
+      - redis-server
+      - /usr/local/etc/redis/redis.conf
+      - --requirepass
+      - "${REDIS_PASSWORD}"
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.12-management
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:

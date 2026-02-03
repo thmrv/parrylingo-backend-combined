@@ -1,0 +1,46 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # ← отладка
+      - name: List fingerprints of loaded SSH keys
+        run: |
+          echo "=== ssh-add -l ==="
+          ssh-add -l
+          echo "=== ssh-add -L ==="
+          ssh-add -L
+
+      - name: Test SSH connection verbosely
+        run: |
+          ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} echo OK
+
+      - name: Add SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} <<'EOF'
+            cd /srv/parry_lingo
+            git pull origin main
+            make down
+            make build
+            make up
+            make migrate
+            make restart
+          EOF
