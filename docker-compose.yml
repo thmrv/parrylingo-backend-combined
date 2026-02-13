@@ -1,5 +1,6 @@
 services:
   app:
+    restart: unless-stopped
     container_name: parrylingo
     build:
       context: .
@@ -18,6 +19,7 @@ services:
       - .:/app
 
   celery_worker:
+    restart: unless-stopped
     container_name: celery_worker
     build: .
     command: python -m celery -A celery_tasks.main worker --pool=solo --loglevel=info -E
@@ -31,6 +33,7 @@ services:
       - .:/app
 
   celery_beat:
+    restart: unless-stopped
     container_name: celery_beat
     build: .
     command: python -m celery -A celery_tasks.main beat --loglevel=info
@@ -49,6 +52,7 @@ services:
       - .:/app
 
   flower:
+    restart: unless-stopped
     container_name: flower
     build: .
     command: celery -A celery_tasks.main flower --port=5555 --broker=amqp://guest:guest@rabbitmq:5672//

@@ -10,4 +10,6 @@ class Language(Base, UUIDIDMixin, TimestampMixin):
     # название языка, например "English"
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     language_code: Mapped[str] = mapped_column(String(100), nullable=True, unique=True)
+    # связь на интерфейсы
+    interface_flag_code: Mapped[str] = mapped_column(String(100), nullable=True, unique=True)
     # связь на уроки

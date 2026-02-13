@@ -13,8 +13,8 @@ class LanguageService(BaseService):
         super().__init__(repository)
 
     async def get_list_without_pagination(
-        self, session: AsyncSession, with_lessons: bool = False
+        self, session: AsyncSession, with_lessons: bool = False, with_flags: bool = False
     ):
         return await self.repository.get_list_without_pagination(
-            session, with_lessons=with_lessons
+            session, with_lessons=with_lessons, with_flags=with_flags
         )

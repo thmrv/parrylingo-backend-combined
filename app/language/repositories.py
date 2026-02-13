@@ -17,7 +17,7 @@ class LanguageRepository(BaseRepository):
         super().__init__(Language)
 
     async def get_list_without_pagination(
-        self, session: AsyncSession, with_lessons: bool = False, **filters
+        self, session: AsyncSession, with_lessons: bool = False, with_flags: bool = False, **filters
     ) -> List[Language]:
         query = select(self.model).filter_by(**filters)
 

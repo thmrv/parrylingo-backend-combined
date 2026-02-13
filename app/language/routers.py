@@ -18,5 +18,5 @@ async def get_list_language(
     session: AsyncSession = Depends(get_session),
 ):
     return await language_service.get_list_without_pagination(
-        session, with_lessons=with_lessons
+        session, with_lessons=with_lessons, with_flags=with_flags
     )
