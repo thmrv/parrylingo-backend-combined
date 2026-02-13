@@ -1,13 +1,13 @@
 from typing import List
 
-from sqlalchemy import select
+from sqlalchemy import select, join
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.repositories import BaseRepository
 from app.language.models import Language
 from loggers import get_logger
 
-from Interface import Interface
+from interface.models import Interface
 
 logger = get_logger(__name__)
 
