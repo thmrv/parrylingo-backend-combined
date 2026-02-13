@@ -7,7 +7,7 @@ from app.core.database.repositories import BaseRepository
 from app.language.models import Language
 from loggers import get_logger
 
-from interface.models import Interface
+from app.interface.models import Interface
 
 logger = get_logger(__name__)
 
