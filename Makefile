@@ -14,6 +14,11 @@ REDIS_CONTAINER = redis
 build:
 	$(DOCKER_COMPOSE) build
 
+# Build Docker containers
+.PHONY: build
+build-nocache:
+	$(DOCKER_COMPOSE) build --no-cache
+
 # Up Docker containers
 .PHONY: up
 up:
