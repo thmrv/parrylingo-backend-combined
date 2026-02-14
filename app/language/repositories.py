@@ -13,17 +13,17 @@ logger = get_logger(__name__)
 
 
 class LanguageRepository(BaseRepository):
-    """Lesson repository implementation."""
+    """Language repository implementation."""
 
     def __init__(self):
         super().__init__(Language)
 
     async def get_list_without_pagination(
-        self, session: AsyncSession, with_lessons: bool = False, with_flags: bool = False, **filters
+        self, session: AsyncSession, with_lessons: bool = False, append_flags: bool = False, **filters
     ) -> List[Language]:
         query = select(self.model).withfilter_by(**filters)
         
-        if with_flags:
+        if append_flags:
             query = select(Language, Interface).join(Interface, Language.language_code == Interface.language_code).withfilter_by(**filters)
             
         # if with_lessons:
