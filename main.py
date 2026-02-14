@@ -12,6 +12,10 @@ from app.core.routes import v1
 from app.core.settings import settings
 from loggers import get_logger
 
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import logging
+
 logger = get_logger(__name__)
 
 
