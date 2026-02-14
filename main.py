@@ -12,11 +12,6 @@ from app.core.routes import v1
 from app.core.settings import settings
 from loggers import get_logger
 
-from fastapi import Request, status, FastAPI
-from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-
 logger = get_logger(__name__)
 
 
@@ -36,21 +31,16 @@ async def lifespan(application: FastAPI):
     # await redis_client.aclose()
     # logger.info("Redis connection closed")
 
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
-        )
 
-    def get_application() -> FastAPI:
-        sentry_sdk.init(
+def get_application() -> FastAPI:
+    sentry_sdk.init(
         dsn=settings.sentry_dsn,
         environment=settings.sentry_env,
         traces_sample_rate=1.0,
         _experiments={
             "continuous_profiling_auto_start": True,
         },
-        )
+    )
 
     application = FastAPI(
         title=settings.project_name,
@@ -58,7 +48,6 @@ async def lifespan(application: FastAPI):
         version=settings.version,
         lifespan=lifespan,
     )
-    applicationapp.exception_handler(RequestValidationError)
     application.include_router(v1, prefix="/api/v1")
     application.mount("/media", StaticFiles(directory="media"), name="media")
     logger.info("Total endpoints: %s", len(application.routes) - 4)
@@ -79,8 +68,22 @@ async def lifespan(application: FastAPI):
 
     add_pagination(application)
 
-    application.exception_handler(RequestValidationError)
-
     return application
 
+
 app = get_application()
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exception: Exception):
+    
+    logging.exception("An unhandled error occurred:")
+
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "An internal server error occurred",
+            "error": str(exception), 
+            
+        },
+    )
