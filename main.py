@@ -36,6 +36,11 @@ async def lifespan(application: FastAPI):
     # await redis_client.aclose()
     # logger.info("Redis connection closed")
 
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
 
 def get_application() -> FastAPI:
     sentry_sdk.init(
@@ -75,11 +80,6 @@ def get_application() -> FastAPI:
     add_pagination(application)
 
     application.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
-    )
 
     return application
 
