@@ -16,6 +16,7 @@ async def get_list_language(
     with_lessons: bool = Query(False, description="Отдавать только языки с уроками"),
     language_service: LanguageService = Depends(get_language_service),
     session: AsyncSession = Depends(get_session),
+    append_flags: bool = Query(False, description="Отдавать вместе с флагами интерфейсов"),
 ):
     return await language_service.get_list_without_pagination(
         session, with_lessons=with_lessons, append_flags=append_flags
