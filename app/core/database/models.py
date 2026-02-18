@@ -5,6 +5,13 @@ from sqlalchemy import DateTime, Integer, MetaData, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.language.models import Language
+    from app.interface.models import Interface
+
+__all__ = ["Base"]
 
 class Base(DeclarativeBase):
     metadata = MetaData(

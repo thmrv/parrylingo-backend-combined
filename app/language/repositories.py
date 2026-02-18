@@ -1,6 +1,7 @@
 from typing import List
 
 from sqlalchemy import select, join
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.repositories import BaseRepository
@@ -8,6 +9,7 @@ from app.language.models import Language
 from loggers import get_logger
 
 from app.interface.models import Interface
+from app.language.models import Language
 
 logger = get_logger(__name__)
 
@@ -21,10 +23,10 @@ class LanguageRepository(BaseRepository):
     async def get_list_without_pagination(
         self, session: AsyncSession, with_lessons: bool = False, append_flags: bool = False, **filters
     ) -> List[Language]:
-        query = select(self.model).withfilter_by(**filters)
+        query = select(self.model).filter_by(**filters)
         
-        if append_flags:
-            query = select(Language, Interface).join(Interface, Language.language_code == Interface.language_code).withfilter_by(**filters)
+        if append_flags == True:
+            query = select(self.model).options(joinedload(self.model.interface)).filter_by(**filters)
             
         # if with_lessons:
         #     lesson_exists_subq = exists().where(self.model.id == Lesson.language_id)

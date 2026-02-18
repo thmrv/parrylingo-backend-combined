@@ -64,7 +64,11 @@ def register_middlewares(app: FastAPI) -> None:
                 error_traceback,
             )
             sentry_sdk.capture_exception(e)
-            return JSONResponse(status_code=500, content={"detail": "Unexpected error"})
+            return JSONResponse(status_code=500, content={
+                "path": request.url.path,
+                "error": str(e),
+                "traceback": error_traceback
+                })
 
 
 def handle_postgresql_error(error: IntegrityError) -> JSONResponse:
