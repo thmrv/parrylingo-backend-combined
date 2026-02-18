@@ -23,10 +23,12 @@ class LanguageRepository(BaseRepository):
     async def get_list_without_pagination(
         self, session: AsyncSession, with_lessons: bool = False, append_flags: bool = False, **filters
     ) -> List[Language]:
-        query = select(self.model).filter_by(**filters)
         
         if append_flags == True:
             query = select(self.model).options(joinedload(self.model.interface)).filter_by(**filters)
+        else:
+            response_model_exclude={"flag_code"}
+            query = select(self.model).filter_by(**filters)
             
         # if with_lessons:
         #     lesson_exists_subq = exists().where(self.model.id == Lesson.language_id)
@@ -34,4 +36,11 @@ class LanguageRepository(BaseRepository):
 
         query = query.order_by(self.model.created_at.desc())
         result = await session.execute(query)
-        return result.scalars().all()
+        
+        languages = result.scalars().unique().all()
+
+        if not append_flags:
+            for lang in languages:
+                lang.__dict__["interface"] = None 
+            
+        return languages

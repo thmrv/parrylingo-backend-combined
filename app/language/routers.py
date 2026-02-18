@@ -11,7 +11,7 @@ from app.language.services import LanguageService
 router = APIRouter()
 
 
-@router.get("/languages", response_model=List[LanguageSchema])
+@router.get("/languages", response_model=List[LanguageSchema], response_model_exclude_none=True)
 async def get_list_language(
     with_lessons: bool = Query(False, description="Отдавать только языки с уроками"),
     language_service: LanguageService = Depends(get_language_service),

@@ -1,4 +1,5 @@
 import traceback
+import sys
 
 import sentry_sdk
 from fastapi import FastAPI, Request
@@ -63,9 +64,16 @@ def register_middlewares(app: FastAPI) -> None:
                 str(e),
                 error_traceback,
             )
-            sentry_sdk.capture_exception(e)
+            
+            summary = traceback.extract_tb(sys.exc_info()[2])
+            last_frame = summary[-1]
+            
+            #sentry_sdk.capture_exception(e)
             return JSONResponse(status_code=500, content={
                 "path": request.url.path,
+                "file": last_frame.filename,
+                "line": last_frame.lineno,
+                "function": last_frame.name,
                 "error": str(e),
                 "traceback": error_traceback
                 })
