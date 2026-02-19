@@ -94,7 +94,7 @@ class LessonRepository(BaseRepository):
         subq = (
             select(
                 Lesson.user_id.label("uid"),
-                func.max(Lesson.created_at).label("last_dt"),
+                func.max(Lesson.updated_at).label("last_dt"),
             )
             .where(Lesson.user_id.isnot(None))
             .group_by(Lesson.user_id)
@@ -109,7 +109,7 @@ class LessonRepository(BaseRepository):
             select(Lesson)
             .join(
                 subq,
-                and_(Lesson.user_id == subq.c.uid, Lesson.created_at == subq.c.last_dt),
+                and_(Lesson.user_id == subq.c.uid, Lesson.updated_at == subq.c.last_dt),
             )
             .join(u, Lesson.user_id == u.id)
         )
@@ -124,7 +124,7 @@ class LessonRepository(BaseRepository):
 
         # 5) Пагинация
         offset = (page - 1) * size
-        stmt = stmt.offset(offset).limit(size)
+        stmt = stmt.offset(offset).limit(size).order_by(Lesson.updated_at.desc())
 
         result = await session.execute(stmt)
         lessons = result.unique().scalars().all()

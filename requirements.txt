@@ -20,6 +20,7 @@ pydantic-settings
 pydub
 pyjwt
 pytest
+pyuca
 pytest-asyncio
 python-dotenv
 python-multipart
