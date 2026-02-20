@@ -15,7 +15,8 @@ class WordSchema(Base):
     titles: dict[str, str]
     image: str
     audio: dict[str, str]
-
+    topic: Optional[TopicSchema] = None
+    media_missing: Optional[bool] = False
 
 class LessonSchema(Base):
     id: UUID

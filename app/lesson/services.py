@@ -2,14 +2,26 @@ import base64
 import json
 import math
 import mimetypes
+import traceback
 import re
 from io import BytesIO
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
+from app.core.database.database_async import get_session
 
 from fastapi import HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import UploadFile as StarletteUploadFile
+from fastapi.testclient import TestClient
+
+from app.core.utils import get_background_tasks
+from redis.asyncio import Redis
+from app.core.database.redis import get_redis 
+
+import httpx
+import asyncio
+import logging
 
 from app.core.services import BaseService
 from app.core.utils import remove_media_file, save_upload_file
@@ -19,6 +31,7 @@ from app.lesson.mappers import (
     lesson_without_user_mapper,
     user_mapper,
     word_mapper,
+    word_mapper_roulette
 )
 from app.lesson.models import Lesson
 from app.lesson.repositories import LessonRepository, WordRepository
@@ -35,8 +48,10 @@ from app.user.models import User
 from app.user.repositories import UserLessonProgressRepository, UserRepository
 from loggers import get_logger
 
-logger = get_logger(__name__)
+from app.core.settings import settings
 
+logger = get_logger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class LessonService(BaseService):
 
@@ -52,7 +67,7 @@ class LessonService(BaseService):
         self.word_repo = word_repo
         self.language_repo = language_repo
         self.user_repo = user_repo
-        self.progress_repo = progress_repo
+        self.progress_repo = progress_repo,
 
     async def create_lesson(
         self,
@@ -101,7 +116,16 @@ class LessonService(BaseService):
 
         result = lesson_mapper(lesson)
         logger.info("Returning created lesson %s", str(lesson.id))
+        
+        launch_audio_validation_status = await self.requestAudioValidation(25)
+        logger.info("Launched audio validation with return status: %s", launch_audio_validation_status)
+        
         return result
+
+    async def requestAudioValidation(self, offset: int):
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{settings.base_url}admin/trigger-validation?offset={offset}")
+            assert response.status_code == 200
 
     async def create_lesson_from_base64(
         self,
@@ -299,8 +323,8 @@ class LessonService(BaseService):
     async def get_roulette(
         self, session: AsyncSession, count: int = 4
     ) -> list[WordSchema]:
-        words = await self.word_repo.get_random_words(session, count)
-        return [word_mapper(w) for w in words]
+        words = await self.word_repo.get_random_words_by_topic(session, count)
+        return [word_mapper_roulette(w) for w in words]
 
     async def delete(self, session: AsyncSession, **filters) -> Optional[Lesson]:
         logger.info("Attempting to delete lesson with filters %s", filters)
@@ -355,3 +379,63 @@ class LessonService(BaseService):
             size=size,
             pages=math.ceil(total / size),
         )
+        
+class AudioValidationService:
+    BASE_URL = settings.media_base_url
+
+    def __init__(self, repository: WordRepository, session: AsyncSession, redis: Redis = Depends(get_redis), offset: int = 0):
+        self.redis = redis
+        self.repository = repository
+        self.session = session
+        self.offset = offset
+
+    async def run_background_validation(self):
+        words = await self.repository.get_all_with_audio(self.session, self.offset)
+        failed_word_ids = set()
+        
+        try:
+            lock_acquired = await self.redis.set("audio_validation_lock", "running", ex=3600, nx=True)
+                
+            tasks = []
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                semaphore = asyncio.Semaphore(10)
+
+                print("BACKGROUND TASK:    AUDIO VALIDATION TASK STARTED")
+                        
+                for word in words:
+                    for locale, path in word.audio_url.items():
+                        if isinstance(path, str) and path.startswith('audio'):
+                            word_id, is_failed = await self._check_url(client, path, word.id, semaphore)
+                            if is_failed:
+                                logger.warning(f"Word {word_id} failed on {locale}. Skipping other locales.")
+                                failed_word_ids.add(word_id)
+                                break 
+
+            if failed_word_ids:
+                await self.repository.mark_words_as_missing(list(failed_word_ids))
+                print("BACKGROUND TASK:    AUDIO VALIDATION TASK FINISHED")
+                logger.info(f"Validation complete. Marked {len(failed_word_ids)} words out of {len(words)} as media_missing=True")
+                await self.redis.delete("audio_validation_lock")
+            else:
+                print("BACKGROUND TASK:    AUDIO VALIDATION TASK FINISHED: ALL FOUND")
+                logger.info(f"Validation complete. All media found [{len(words)}] words")
+                await self.redis.delete("audio_validation_lock")
+        except Exception as e:
+            verbose_error = traceback.format_exc()
+            print("BACKGROUND TASK:    AUDIO VALIDATION TASK FAILED: \n" + verbose_error)
+            logger.error("Validation failed: \n" + verbose_error)
+            await self.redis.delete("audio_validation_lock")
+            return
+
+    async def _check_url(self, client, path, word_id, semaphore):
+        async with semaphore:
+            url = f"{self.BASE_URL}{path}"
+            try:
+                response = await client.head(url)
+                # If 404
+                logger.info("URL checked: %s", response.status_code)
+                return word_id, response.status_code != 200
+            except Exception as e:
+                verbose_error = traceback.format_exc()
+                print("BACKGROUND TASK:    URL CHECKED: EXCEPTION: " + verbose_error)
+                return word_id, True

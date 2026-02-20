@@ -6,6 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Form, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import APIRouter, Depends, BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.lesson.repositories import WordRepository
+from app.lesson.services import AudioValidationService
+
+from redis.asyncio import Redis
+from app.core.database.redis import get_redis 
+
 from app.core.database.database_async import get_session
 from app.lesson.dependencies import get_favorite_user_lesson_service, get_lesson_service
 from app.lesson.schemas import (
@@ -34,9 +42,12 @@ from app.user.services import (
     UserLessonRouletteProgressService,
 )
 
+from loggers import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter()
 admin_router = APIRouter(prefix="/admin")
-
 
 @router.post(
     "/lesson/base64", status_code=status.HTTP_201_CREATED, response_model=LessonSchema
@@ -53,7 +64,7 @@ async def create_lesson_base64(
     word2_image_base64: str = Form(...),
     word2_audio_base64: str = Form(...),
     lesson_service: LessonService = Depends(get_lesson_service),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session)
 ):
     debug_payload = {
         "creator_name": creator_name,
@@ -340,3 +351,25 @@ async def debug_user_progress(
 ):
     service = LeaderboardService(session)
     return await service.debug_user_progress(language_id, current_user.id)
+
+@admin_router.get("/trigger-validation")
+async def trigger_audio_validation(
+    background_tasks: BackgroundTasks, 
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+    offset: int = 0
+):
+    lock_acquired = await redis.get("audio_validation_lock")
+    
+    if lock_acquired:
+        logger.error(f"The lock is active with value: {lock_acquired}")
+        return {"status": 400, "message": "Validation already running."}
+    else:
+        logger.info("No lock found. Validation is not running.")
+        
+        repo = WordRepository(session)
+        service = AudioValidationService(repo, session, redis, offset)
+    
+        background_tasks.add_task(service.run_background_validation)
+    
+        return {"status": 200, "message": "Audio validation started in the background. Check logs for results."}

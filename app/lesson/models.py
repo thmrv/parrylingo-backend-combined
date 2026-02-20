@@ -4,6 +4,8 @@ from typing import List
 from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.topic.models import Topic
+from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 
 from app.core.database.models import (
     Base,
@@ -76,3 +78,7 @@ class Word(Base, UUIDIDMixin, TimestampMixin):
     lesson: Mapped["Lesson"] = relationship(
         "Lesson", back_populates="words", lazy="joined"
     )
+    
+    topic: AssociationProxy["Topic"] = association_proxy("lesson", "topic")
+    
+    media_missing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

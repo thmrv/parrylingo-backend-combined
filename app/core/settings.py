@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     version: str
     debug: bool
     cors_allowed_origins: str
+    base_url: str
+    media_base_url: str
 
     postgres_user: str
     postgres_password: str

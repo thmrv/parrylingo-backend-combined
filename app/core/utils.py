@@ -16,6 +16,8 @@ from pydub import AudioSegment
 from app.core.settings import settings
 from loggers import get_logger
 
+from fastapi import BackgroundTasks
+
 pwd_context = CryptContext(
     schemes=["argon2"],
     deprecated="auto",
@@ -26,6 +28,8 @@ pwd_context = CryptContext(
 MEDIA_ROOT = "media"
 logger = get_logger(__name__)
 
+def get_background_tasks() -> BackgroundTasks:
+    return BackgroundTasks()
 
 def hash_password(password: str) -> str:
     """

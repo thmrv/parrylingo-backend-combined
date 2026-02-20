@@ -12,7 +12,6 @@ from alembic import op
 import sqlalchemy as sa
 import geoalchemy2
 
-
 # revision identifiers, used by Alembic.
 revision: str = "0d108e54907c"
 down_revision: Union[str, None] = "7bd2b7816705"

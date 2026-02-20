@@ -68,26 +68,10 @@ def get_application() -> FastAPI:
     )
 
     # Sentry middleware for error tracking
-    application.add_middleware(SentryAsgiMiddleware)  # noqa
+    #application.add_middleware(SentryAsgiMiddleware)  # noqa
 
     add_pagination(application)
 
     return application
 
-
 app = get_application()
-
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exception: Exception):
-    
-    logging.exception("An unhandled error occurred:")
-
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": "An internal server error occurred",
-            "error": str(exception), 
-            
-        },
-    )

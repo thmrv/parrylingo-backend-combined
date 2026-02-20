@@ -18,7 +18,16 @@ def word_mapper(word: Word) -> WordSchema:
         image=word.image_url,
         audio=word.audio_url,
     )
-
+    
+def word_mapper_roulette(word: Word) -> WordSchema:
+    return WordSchema(
+        id=word.id,
+        titles=word.titles,
+        image=word.image_url,
+        audio=word.audio_url,
+        #lesson=word.lesson
+        topic=word.topic
+    )
 
 def lesson_mapper(lesson: Lesson) -> LessonSchema:
     return LessonSchema(

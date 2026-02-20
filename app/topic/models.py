@@ -2,6 +2,7 @@ from typing import List
 
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 
 from app.core.database.models import Base, TimestampMixin, UUIDIDMixin
 
@@ -16,3 +17,5 @@ class Topic(Base, UUIDIDMixin, TimestampMixin):
         back_populates="topic",
         passive_deletes=True,  # чтобы SQL-сторона обрабатывала ondelete
     )
+
+    words: AssociationProxy[List["Word"]] = association_proxy("lessons", "words")

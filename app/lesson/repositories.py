@@ -1,13 +1,14 @@
 from typing import Any, List, Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, cast, exists, func, select
+from sqlalchemy import and_, cast, exists, func, select, update
 from sqlalchemy.dialects.postgresql import TEXT, array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.database.repositories import BaseRepository
 from app.lesson.models import Lesson, Word
+from app.topic.models import Topic
 from app.user.models import FavoriteUserLesson, User
 from loggers import get_logger
 
@@ -48,6 +49,7 @@ class LessonRepository(BaseRepository):
             conditions.append(Lesson.topic_id == filters["topic_id"])
 
         stmt = select(Lesson).where(*conditions)
+        
         LANGUAGE_VARIANT_KEYS = {
             "en": ["en_us", "en_gb", "en_ca", "en_au", "en"],
         }
@@ -81,7 +83,7 @@ class LessonRepository(BaseRepository):
         total = (await session.execute(total_q)).scalar_one()
 
         offset = (page - 1) * size
-        stmt = stmt.order_by(Lesson.created_at.desc()).offset(offset).limit(size)
+        stmt = stmt.where(Lesson.words.any(Word.media_missing != True)).order_by(Lesson.created_at.desc()).offset(offset).limit(size)
 
         result = await session.execute(stmt)
         lessons = result.unique().scalars().all()
@@ -97,6 +99,7 @@ class LessonRepository(BaseRepository):
                 func.max(Lesson.updated_at).label("last_dt"),
             )
             .where(Lesson.user_id.isnot(None))
+            .where(Lesson.words.any(Word.media_missing != True))
             .group_by(Lesson.user_id)
             .subquery()
         )
@@ -134,8 +137,28 @@ class LessonRepository(BaseRepository):
 class WordRepository(BaseRepository):
     """Lesson repository implementation."""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession = None):
+        self.session = session
         super().__init__(Word)
+
+    async def get_all_with_audio(
+        self, session: AsyncSession, offset: int
+    ) -> Sequence[Word]:
+        if offset == 0:
+            stmt = select(Word).where(Word.audio_url != None).order_by(Word.updated_at.desc())
+        else:
+            stmt = select(Word).where(Word.audio_url != None).limit(offset).order_by(Word.updated_at.desc())         
+        result = await self.session.execute(stmt)
+        return result.unique().scalars().all()
+
+    async def mark_words_as_missing(self, word_ids: list):
+        stmt = (
+            update(Word)
+            .where(Word.id.in_(word_ids))
+            .values(media_missing=True)
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
 
     async def get_random_words(
         self, session: AsyncSession, count: int
@@ -144,6 +167,29 @@ class WordRepository(BaseRepository):
         stmt = (
             select(Word)
             .join(Lesson, Word.lesson_id == Lesson.id)
+            .where(Word.media_missing != True)
+            .order_by(func.random())
+            .limit(count)
+        )
+        result = await session.execute(stmt)
+        return result.unique().scalars().all()
+    
+    async def get_random_words_by_topic(
+        self, session: AsyncSession, count: int
+    ) -> Sequence[Word]:
+        random_topic_subq = (
+            select(Topic.id)
+            .order_by(func.random())
+            .limit(1)
+            .scalar_subquery()
+        )
+        # JOIN по урокам нужного языка и выбираем count случайных
+        stmt = (
+            select(Word)
+            .join(Lesson, Word.lesson_id == Lesson.id)
+            .join(Topic, Lesson.topic_id == Topic.id)
+            .where(Lesson.topic_id == random_topic_subq)
+            .where(Word.media_missing != True)
             .order_by(func.random())
             .limit(count)
         )
@@ -161,6 +207,7 @@ class WordRepository(BaseRepository):
             .join(Lesson, Word.lesson_id == Lesson.id)
             .join(FavoriteUserLesson, FavoriteUserLesson.lesson_id == Lesson.id)
             .where(FavoriteUserLesson.user_id == user_id)
+            .where(Word.media_missing != True)
             .order_by(func.random())
             .limit(count)
         )
