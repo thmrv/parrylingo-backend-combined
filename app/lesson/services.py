@@ -239,14 +239,18 @@ class LessonService(BaseService):
             **filters,
         )
 
+        logger.warning(isinstance(self.progress_repo, tuple))
+        logger.warning(self.progress_repo[0])
+
         progress_map: dict[UUID, int] = {}
         if user_id:
             ids = [lesson.id for lesson in lessons]
-            progresses = await self.progress_repo.list_by_user_and_lessons(
+            progresses = await self.progress_repo[0].list_by_user_and_lessons(
                 session, user_id, language_id, ids
             )
+            
             progress_map = {p.lesson_id: p.stars for p in progresses}
-
+        
         items = []
         for lesson in lessons:
             dto = lesson_mapper(lesson)
@@ -321,9 +325,9 @@ class LessonService(BaseService):
         return lesson_mapper(lesson)
 
     async def get_roulette(
-        self, session: AsyncSession, count: int = 4
+        self, session: AsyncSession, count: int = 4, topic_id: str = None
     ) -> list[WordSchema]:
-        words = await self.word_repo.get_random_words_by_topic(session, count)
+        words = await self.word_repo.get_random_words_by_topic(session, count, topic_id)
         return [word_mapper_roulette(w) for w in words]
 
     async def delete(self, session: AsyncSession, **filters) -> Optional[Lesson]:

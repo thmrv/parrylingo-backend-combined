@@ -62,7 +62,6 @@ class FavoriteUserLessonRepository(BaseRepository):
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
-
 class UserLessonProgressRepository(BaseRepository):
     def __init__(self):
         super().__init__(UserLessonProgress)

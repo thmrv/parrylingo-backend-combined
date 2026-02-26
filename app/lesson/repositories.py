@@ -175,41 +175,66 @@ class WordRepository(BaseRepository):
         return result.unique().scalars().all()
     
     async def get_random_words_by_topic(
-        self, session: AsyncSession, count: int
+        self, session: AsyncSession, count: int, topic_id: str
     ) -> Sequence[Word]:
-        random_topic_subq = (
-            select(Topic.id)
-            .order_by(func.random())
-            .limit(1)
-            .scalar_subquery()
-        )
-        # JOIN по урокам нужного языка и выбираем count случайных
-        stmt = (
-            select(Word)
-            .join(Lesson, Word.lesson_id == Lesson.id)
-            .join(Topic, Lesson.topic_id == Topic.id)
-            .where(Lesson.topic_id == random_topic_subq)
-            .where(Word.media_missing != True)
-            .order_by(func.random())
-            .limit(count)
-        )
+        if topic_id == None:
+            random_topic_subq = (
+                select(Topic.id)
+                .order_by(func.random())
+                .limit(1)
+                .scalar_subquery()
+            )
+            # JOIN по урокам нужного языка и выбираем count случайных
+            stmt = (
+                select(Word)
+                .join(Lesson, Word.lesson_id == Lesson.id)
+                .join(Topic, Lesson.topic_id == Topic.id)
+                #.where(Lesson.topic_id == random_topic_subq)
+                .where(Word.media_missing != True)
+                .order_by(func.random())
+                .limit(count)
+            )
+        else:
+            stmt = (
+                select(Word)
+                .join(Lesson, Word.lesson_id == Lesson.id)
+                .join(Topic, Lesson.topic_id == Topic.id)
+                .where(Lesson.topic_id == topic_id)
+                .where(Word.media_missing != True)
+                .order_by(func.random())
+                .limit(count)
+            )
+        
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
     async def get_random_words_for_user(
-        self, session: AsyncSession, user_id: UUID, count: int
+        self, session: AsyncSession, user_id: UUID, count: int, topic_id: str
     ) -> Sequence[Word]:
         """
         Случайные слова из всех уроков, которые пользователь добавил в избранное.
         """
-        stmt = (
-            select(Word)
-            .join(Lesson, Word.lesson_id == Lesson.id)
-            .join(FavoriteUserLesson, FavoriteUserLesson.lesson_id == Lesson.id)
-            .where(FavoriteUserLesson.user_id == user_id)
-            .where(Word.media_missing != True)
-            .order_by(func.random())
-            .limit(count)
-        )
+        if topic_id == 'null' or topic_id == None:
+            stmt = (
+                select(Word)
+                .join(Lesson, Word.lesson_id == Lesson.id)
+                .join(FavoriteUserLesson, FavoriteUserLesson.lesson_id == Lesson.id)
+                .where(FavoriteUserLesson.user_id == user_id)
+                .where(Word.media_missing != True)
+                .order_by(func.random())
+                .limit(count)
+            )
+        else:
+            stmt = (
+                select(Word)
+                .join(Lesson, Word.lesson_id == Lesson.id)
+                .join(FavoriteUserLesson, FavoriteUserLesson.lesson_id == Lesson.id)
+                .where(Lesson.topic_id == topic_id)
+                .where(FavoriteUserLesson.user_id == user_id)
+                .where(Word.media_missing != True)
+                .order_by(func.random())
+                .limit(count)
+            )
+            
         result = await session.execute(stmt)
         return result.unique().scalars().all()

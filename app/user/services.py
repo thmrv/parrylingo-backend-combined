@@ -184,9 +184,9 @@ class FavoriteUserLessonService(BaseService):
         return [lesson_mapper(lesson) for lesson in lessons]
 
     async def get_roulette_for_user(
-        self, session: AsyncSession, user_id: UUID, count: int = 4
+        self, session: AsyncSession, user_id: UUID, count: int = 4, topic_id: str = None
     ) -> List[WordSchema]:
-        words = await self.word_repo.get_random_words_for_user(session, user_id, count)
+        words = await self.word_repo.get_random_words_for_user(session, user_id, count, topic_id)
         return [word_mapper(word) for word in words]
 
 

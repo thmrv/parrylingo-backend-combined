@@ -176,26 +176,13 @@ async def get_user_lessons_by_language(
     return await lesson_service.get_by_user_and_language(
         session, user_id=user_id, current_user=current_user, language_id=language_id
     )
-
-
-@router.get(
-    "/lessons/roulette",
-    response_model=List[WordSchema],
-    summary="Рулетка: N случайных слов-ходов",
-)
-async def roulette_lessons(
-    count: int = Query(4, ge=1, le=18, description="Число слов"),
-    lesson_service: LessonService = Depends(get_lesson_service),
-    session: AsyncSession = Depends(get_session),
-):
-    return await lesson_service.get_roulette(session, count)
-
+    
 
 @router.delete("/lesson/{lesson_id}", response_model=LessonSchema)
 async def delete_lesson(
     lesson_id: UUID,
     lesson_service: LessonService = Depends(get_lesson_service),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session)
 ):
     return await lesson_service.delete(session, id=lesson_id)
 
@@ -269,6 +256,20 @@ async def list_favorite_lessons(
 
 
 @router.get(
+    "/lessons/roulette",
+    response_model=List[WordSchema],
+    summary="Рулетка: N случайных слов-ходов",
+)
+async def roulette_lessons(
+    count: int = Query(4, ge=1, le=18, description="Число слов"),
+    lesson_service: LessonService = Depends(get_lesson_service),
+    session: AsyncSession = Depends(get_session),
+    topic_id: str = None
+):
+    return await lesson_service.get_roulette(session, count, topic_id=topic_id)
+
+
+@router.get(
     "/favorites/lessons/roulette",
     response_model=List[WordSchema],
     summary="Рулетка: N случайных слов из избранных уроков пользователя",
@@ -278,11 +279,11 @@ async def roulette_favorites(
     current_user: UserModel = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     fav_service: FavoriteUserLessonService = Depends(get_favorite_user_lesson_service),
+    topic_id: str = None
 ):
     return await fav_service.get_roulette_for_user(
-        session=session, user_id=current_user.id, count=count
+        session=session, user_id=current_user.id, count=count, topic_id=topic_id
     )
-
 
 @router.post(
     "/progress/lessons",

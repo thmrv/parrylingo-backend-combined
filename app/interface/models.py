@@ -21,5 +21,7 @@ class Interface(Base, TimestampMixin):
     language: Mapped["Language"] = relationship(
         "Language", 
         foreign_keys=[language_code],
-        back_populates="interface"
+        back_populates="interface",
+        cascade="all, delete-orphan",
+        single_parent=True 
     )
